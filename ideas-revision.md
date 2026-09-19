@@ -7,4 +7,4 @@
 - [ ] **Binario:** compila bien; revisar que `./weather` guarde datos en `~/.config/weather-cli/`.
 - [ ] **Escalabilidad:** ¿qué tan fácil será expandir con nuevas funcionalidades?
 - [ ] **Carga:** ¿hay estado de carga en las tareas asíncronas?
-- [ ] **7 day forecast:** pronóstico 7 días (min/max) para la ciudad default en la opción 6.
+- [x] **7 day forecast:** pronóstico 7 días (min/max) para todas las ciudades en la opción 6.

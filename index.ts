@@ -32,6 +32,20 @@ interface ForecastResponse {
   };
 }
 
+interface DailyForecastResponse {
+  daily?: {
+    time?: string[];
+    temperature_2m_min?: number[];
+    temperature_2m_max?: number[];
+  };
+}
+
+interface DailyForecast {
+  time: string[];
+  min: number[];
+  max: number[];
+}
+
 const RESET = "\x1b[0m";
 const CYAN = "\x1b[36m";
 const YELLOW = "\x1b[33m";
@@ -130,6 +144,26 @@ async function fetchTemperature(city: City, unit: Store["unit"]): Promise<number
   return temp;
 }
 
+async function fetchDailyForecast(city: City, unit: Store["unit"]): Promise<DailyForecast> {
+  const url =
+    `https://api.open-meteo.com/v1/forecast?latitude=${city.latitude}` +
+    `&longitude=${city.longitude}&daily=temperature_2m_min,temperature_2m_max` +
+    `&forecast_days=7&temperature_unit=${unit}&timezone=auto`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Forecast HTTP ${res.status}`);
+  const data = (await res.json()) as DailyForecastResponse;
+  const time = data.daily?.time;
+  const min = data.daily?.temperature_2m_min;
+  const max = data.daily?.temperature_2m_max;
+  if (!Array.isArray(time) || !Array.isArray(min) || !Array.isArray(max)) {
+    throw new Error("Respuesta de pronóstico incompleta");
+  }
+  if (time.length === 0 || time.length !== min.length || time.length !== max.length) {
+    throw new Error("Respuesta de pronóstico incompleta");
+  }
+  return { time, min, max };
+}
+
 async function showWeather(city: City, unit: Store["unit"]): Promise<void> {
   try {
     const temp = await fetchTemperature(city, unit);
@@ -148,6 +182,7 @@ function printMenu(store: Store): void {
   console.log(cyan("  3. Buscar y agregar ciudad"));
   console.log(cyan("  4. Eliminar ciudad"));
   console.log(cyan("  5. Establecer ciudad default"));
+  console.log(cyan("  6. Pronóstico 7 días (todas las ciudades)"));
   console.log(cyan(`  8. Ajustes (${unitLabel(store.unit)})`));
   console.log(cyan("  9. Salir"));
   console.log(cyan("════════════════════════════════════════"));
@@ -173,6 +208,31 @@ async function handleAll(store: Store): Promise<void> {
   }
   for (const city of store.cities) {
     await showWeather(city, store.unit);
+  }
+}
+
+async function showForecast7Days(city: City, unit: Store["unit"]): Promise<void> {
+  try {
+    const forecast = await fetchDailyForecast(city, unit);
+    console.log(`  📅 Pronóstico 7 días: ${cityLabel(city)}`);
+    forecast.time.forEach((date, i) => {
+      const min = forecast.min[i];
+      const max = forecast.max[i];
+      if (typeof min !== "number" || typeof max !== "number") return;
+      console.log(`  ${date}: min ${yellow(`${min}${unitLabel(unit)}`)} / max ${yellow(`${max}${unitLabel(unit)}`)}`);
+    });
+  } catch (error) {
+    console.log(red(`  ❌ ${city.name}: no se pudo obtener el pronóstico (${error instanceof Error ? error.message : error})`));
+  }
+}
+
+async function handleForecast7Days(store: Store): Promise<void> {
+  if (store.cities.length === 0) {
+    console.log(red("  No hay ciudades. Usa la opción 3 para agregar una."));
+    return;
+  }
+  for (const city of store.cities) {
+    await showForecast7Days(city, store.unit);
   }
 }
 
@@ -276,6 +336,9 @@ async function main(): Promise<void> {
       case "5":
         store = await handleSetDefault(store);
         break;
+      case "6":
+        await handleForecast7Days(store);
+        break;
       case "8":
         store = await handleToggleUnit(store);
         break;
@@ -283,7 +346,7 @@ async function main(): Promise<void> {
         console.log(green("  ¡Hasta luego!"));
         return;
       default:
-        console.log(red("  Opción inválida. Elige 1, 2, 3, 4, 5, 8 o 9."));
+        console.log(red("  Opción inválida. Elige 1, 2, 3, 4, 5, 6, 8 o 9."));
         break;
     }
   }
