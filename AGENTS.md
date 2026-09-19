@@ -10,7 +10,15 @@ Bun + TypeScript Weather CLI. Entry `src/index.ts`. Spec in `README.md` (Spanish
 - Typecheck: `bun run typecheck` (`bunx tsc --noEmit`)
 - Build binary: `bun run build` (gate: `bun test --isolate && bunx tsc --noEmit && bun build --compile src/index.ts --outfile weather`)
 - Quality gate: any failing test or TS error blocks `weather` binary creation. Coverage never blocks build.
+- Version: `package.json` `version` (current `1.0.0`) is release source of truth; tag is `v<version>` (ej. `v1.0.0`).
 - No lint scripts defined. Don't add frameworks unprompted.
+
+## Release (`.github/workflows/release.yml`)
+
+- Trigger: push to `main` when `package.json` changes. Bump `version` to publish.
+- Build matrix runs `bun run build` on `ubuntu-latest`, `macos-latest`, `windows-latest` (Bun `1.4.2`, `bun install --frozen-lockfile`).
+- Assets: `weather-linux-x64`, `weather-macos-arm64`, `weather-windows-x64.exe`.
+- Release job reads version with Bun, validates SemVer, skips if tag exists, else `gh release create "v<version>" dist/* --generate-notes` using automatic `${{ github.token }}` (`permissions: contents: write`). No manual secrets or external services.
 
 ## Testing (`tests/`, Bun-native only)
 

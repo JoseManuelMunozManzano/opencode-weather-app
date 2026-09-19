@@ -1,0 +1,107 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - package.json
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: weather-linux-x64
+          - os: macos-latest
+            asset: weather-macos-arm64
+          - os: windows-latest
+            asset: weather-windows-x64.exe
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build binary
+        run: bun run build
+
+      - name: Rename binary
+        shell: bash
+        run: |
+          if [ -f "weather.exe" ]; then
+            mv weather.exe "${{ matrix.asset }}"
+          else
+            mv weather "${{ matrix.asset }}"
+          fi
+          chmod +x "${{ matrix.asset }}" || true
+          ls -lh "${{ matrix.asset }}"
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.os }}
+          path: ${{ matrix.asset }}
+          if-no-files-found: error
+
+  release:
+    name: Tag and Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: binary-*
+          merge-multiple: true
+          path: dist
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          VERSION="$(bun -e 'console.log(require("./package.json").version)')"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid SemVer in package.json: $VERSION" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Create tag and GitHub Release
+        shell: bash
+        run: |
+          ls -lh dist/
+          if gh release view "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Release ${{ steps.version.outputs.tag }} already exists, skipping."
+            exit 0
+          fi
+          gh release create "${{ steps.version.outputs.tag }}" dist/* \
+            --title "${{ steps.version.outputs.tag }}" \
+            --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
