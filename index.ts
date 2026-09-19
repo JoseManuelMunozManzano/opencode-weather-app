@@ -32,6 +32,28 @@ interface ForecastResponse {
   };
 }
 
+const RESET = "\x1b[0m";
+const CYAN = "\x1b[36m";
+const YELLOW = "\x1b[33m";
+const GREEN = "\x1b[32m";
+const RED = "\x1b[31m";
+
+function cyan(text: string): string {
+  return `${CYAN}${text}${RESET}`;
+}
+
+function yellow(text: string): string {
+  return `${YELLOW}${text}${RESET}`;
+}
+
+function green(text: string): string {
+  return `${GREEN}${text}${RESET}`;
+}
+
+function red(text: string): string {
+  return `${RED}${text}${RESET}`;
+}
+
 function dataDir(): string {
   // En binario compilado import.meta.dir apunta a /$bunfs (solo lectura).
   // Ahí se usa el directorio del ejecutable para que el JSON quede junto al CLI.
@@ -49,7 +71,7 @@ async function loadStore(): Promise<Store> {
     if (!(await file.exists())) return { ...DEFAULT_STORE, cities: [] };
     const raw = await file.json();
     if (!raw || typeof raw !== "object" || !Array.isArray((raw as Store).cities)) {
-      console.log("Datos locales inválidos, se reinician.");
+      console.log(red("Datos locales inválidos, se reinician."));
       return { ...DEFAULT_STORE, cities: [] };
     }
     const parsed = raw as Store;
@@ -59,7 +81,7 @@ async function loadStore(): Promise<Store> {
       unit: parsed.unit === "fahrenheit" ? "fahrenheit" : "celsius",
     };
   } catch {
-    console.log("No se pudo leer weather-data.json, se reinicia.");
+    console.log(red("No se pudo leer weather-data.json, se reinicia."));
     return { ...DEFAULT_STORE, cities: [] };
   }
 }
@@ -111,34 +133,34 @@ async function fetchTemperature(city: City, unit: Store["unit"]): Promise<number
 async function showWeather(city: City, unit: Store["unit"]): Promise<void> {
   try {
     const temp = await fetchTemperature(city, unit);
-    console.log(`  🌡️  ${cityLabel(city)}: ${temp}${unitLabel(unit)}`);
+    console.log(`  🌡️  ${cityLabel(city)}: ${yellow(`${temp}${unitLabel(unit)}`)}`);
   } catch (error) {
-    console.log(`  ❌ ${city.name}: no se pudo obtener el clima (${error instanceof Error ? error.message : error})`);
+    console.log(red(`  ❌ ${city.name}: no se pudo obtener el clima (${error instanceof Error ? error.message : error})`));
   }
 }
 
 function printMenu(store: Store): void {
-  console.log("════════════════════════════════════════");
-  console.log("         WEATHER CLI");
-  console.log("════════════════════════════════════════");
-  console.log("  1. Clima de ciudad default");
-  console.log(`  2. Clima de todas las ciudades (${store.cities.length})`);
-  console.log("  3. Buscar y agregar ciudad");
-  console.log("  4. Eliminar ciudad");
-  console.log("  5. Establecer ciudad default");
-  console.log(`  8. Ajustes (${unitLabel(store.unit)})`);
-  console.log("  9. Salir");
-  console.log("════════════════════════════════════════");
+  console.log(cyan("════════════════════════════════════════"));
+  console.log(cyan("         WEATHER CLI"));
+  console.log(cyan("════════════════════════════════════════"));
+  console.log(cyan("  1. Clima de ciudad default"));
+  console.log(cyan(`  2. Clima de todas las ciudades (${store.cities.length})`));
+  console.log(cyan("  3. Buscar y agregar ciudad"));
+  console.log(cyan("  4. Eliminar ciudad"));
+  console.log(cyan("  5. Establecer ciudad default"));
+  console.log(cyan(`  8. Ajustes (${unitLabel(store.unit)})`));
+  console.log(cyan("  9. Salir"));
+  console.log(cyan("════════════════════════════════════════"));
 }
 
 async function handleDefault(store: Store): Promise<void> {
   if (!store.defaultCity) {
-    console.log("  No hay ciudad default. Usa la opción 5.");
+    console.log(red("  No hay ciudad default. Usa la opción 5."));
     return;
   }
   const city = findCity(store, store.defaultCity);
   if (!city) {
-    console.log(`  La ciudad default "${store.defaultCity}" ya no está registrada.`);
+    console.log(red(`  La ciudad default "${store.defaultCity}" ya no está registrada.`));
     return;
   }
   await showWeather(city, store.unit);
@@ -146,7 +168,7 @@ async function handleDefault(store: Store): Promise<void> {
 
 async function handleAll(store: Store): Promise<void> {
   if (store.cities.length === 0) {
-    console.log("  No hay ciudades. Usa la opción 3 para agregar una.");
+    console.log(red("  No hay ciudades. Usa la opción 3 para agregar una."));
     return;
   }
   for (const city of store.cities) {
@@ -163,7 +185,7 @@ async function handleAdd(store: Store): Promise<Store> {
   try {
     const found = await geocodeCity(query);
     if (!found) {
-      console.log(`  Sin resultados para "${query}".`);
+      console.log(red(`  Sin resultados para "${query}".`));
       return store;
     }
     const city: City = {
@@ -180,17 +202,17 @@ async function handleAdd(store: Store): Promise<Store> {
     const updated: Store = { ...store, cities: [...store.cities, city] };
     if (!updated.defaultCity) updated.defaultCity = city.name;
     await saveStore(updated);
-    console.log(`  ✅ Agregada: ${cityLabel(city)}`);
+    console.log(green(`  ✅ Agregada: ${cityLabel(city)}`));
     return updated;
   } catch (error) {
-    console.log(`  ❌ Error buscando ciudad (${error instanceof Error ? error.message : error})`);
+    console.log(red(`  ❌ Error buscando ciudad (${error instanceof Error ? error.message : error})`));
     return store;
   }
 }
 
 async function handleRemove(store: Store): Promise<Store> {
   if (store.cities.length === 0) {
-    console.log("  No hay ciudades para eliminar.");
+    console.log(red("  No hay ciudades para eliminar."));
     return store;
   }
   store.cities.forEach((c, i) => console.log(`  ${i + 1}. ${cityLabel(c)}`));
@@ -198,38 +220,38 @@ async function handleRemove(store: Store): Promise<Store> {
   const index = Number(choice) - 1;
   const target = store.cities[index];
   if (!Number.isInteger(index) || !target) {
-    console.log("  Selección inválida.");
+    console.log(red("  Selección inválida."));
     return store;
   }
   const updated: Store = { ...store, cities: store.cities.filter((_, i) => i !== index) };
   if (updated.defaultCity === target.name) updated.defaultCity = updated.cities[0]?.name;
   await saveStore(updated);
-  console.log(`  🗑️  Eliminada: ${target.name}`);
+  console.log(green(`  🗑️  Eliminada: ${target.name}`));
   return updated;
 }
 
 async function handleSetDefault(store: Store): Promise<Store> {
   if (store.cities.length === 0) {
-    console.log("  No hay ciudades. Usa la opción 3 para agregar una.");
+    console.log(red("  No hay ciudades. Usa la opción 3 para agregar una."));
     return store;
   }
   store.cities.forEach((c, i) => console.log(`  ${i + 1}. ${cityLabel(c)}`));
   const choice = ask("  Número de ciudad default: ");
   const target = store.cities[Number(choice) - 1];
   if (!target) {
-    console.log("  Selección inválida.");
+    console.log(red("  Selección inválida."));
     return store;
   }
   const updated: Store = { ...store, defaultCity: target.name };
   await saveStore(updated);
-  console.log(`  ⭐ Default: ${target.name}`);
+  console.log(green(`  ⭐ Default: ${target.name}`));
   return updated;
 }
 
 async function handleToggleUnit(store: Store): Promise<Store> {
   const updated: Store = { ...store, unit: store.unit === "celsius" ? "fahrenheit" : "celsius" };
   await saveStore(updated);
-  console.log(`  Unidad: ${unitLabel(updated.unit)}`);
+  console.log(green(`  Unidad: ${unitLabel(updated.unit)}`));
   return updated;
 }
 
@@ -258,10 +280,10 @@ async function main(): Promise<void> {
         store = await handleToggleUnit(store);
         break;
       case "9":
-        console.log("  ¡Hasta luego!");
+        console.log(green("  ¡Hasta luego!"));
         return;
       default:
-        console.log("  Opción inválida. Elige 1, 2, 3, 4, 5, 8 o 9.");
+        console.log(red("  Opción inválida. Elige 1, 2, 3, 4, 5, 8 o 9."));
         break;
     }
   }
