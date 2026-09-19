@@ -5,15 +5,26 @@ Bun + TypeScript Weather CLI. Entry `src/index.ts`. Spec in `README.md` (Spanish
 ## Commands
 
 - Run: `bun run src/index.ts` (`bun run start`, dev: `bun run dev`)
-- Typecheck: `bunx tsc --noEmit`
-- Build binary: `bun run build` (`bun build src/index.ts --compile --outfile weather`)
-- No test/lint scripts defined. Don't add frameworks unprompted.
+- Test: `bun run test` (`bun test --isolate`, only `bun:test`, no extra frameworks)
+- Coverage: `bun run test:coverage` (`bun test --isolate --coverage`, informative)
+- Typecheck: `bun run typecheck` (`bunx tsc --noEmit`)
+- Build binary: `bun run build` (gate: `bun test --isolate && bunx tsc --noEmit && bun build --compile src/index.ts --outfile weather`)
+- Quality gate: any failing test or TS error blocks `weather` binary creation. Coverage never blocks build.
+- No lint scripts defined. Don't add frameworks unprompted.
+
+## Testing (`tests/`, Bun-native only)
+
+- Runner: `bun:test` (`describe/test/expect/mock/spyOn/beforeEach/afterEach`). Always run with `--isolate` (module mocks in `menu.test.ts` leak across files otherwise).
+- Layout mirrors `src/`: `api/`, `storage/`, `actions/`, `presentation/`, `utils/`, plus `helpers/test-utils.ts` (fixtures, temp paths, `stubFetch`, `stubPrompt`, `captureConsole`).
+- Isolation policy: no real Open-Meteo calls, no real `weather-data.json` writes. Stub global `fetch`/`prompt`/`console.log`; storage/actions accept optional `dataPath` (defaults to `DATA_PATH`) and tests use `tmpdir()` files.
+- Module mocks: only `tests/presentation/menu.test.ts` uses `mock.module()` to stub `loadStore`, `ask`, `printMenu`, handlers, `toggleUnit`. All other tests use fetch/prompt spies + temp files.
+- Current status: 74 tests, ~99% funcs/lines; `src/presentation/menu.ts:46` (unreachable default after mocked loop) is only uncovered line.
 
 ## Layout (`src/`)
 
 - `actions/`: `getWeather.ts` (opts 1-2), `getForecast.ts` (opt 6, 7-day min/max), `addCity.ts` (3), `removeCity.ts` (4), `setDefaultCity.ts` (5), `listCities.ts`
 - `presentation/`: `menu.ts` (`runMenu` loop + dispatch), `output.ts` (`printMenu`), `input.ts` (`ask`, index validation)
-- `storage/`: `citiesStorage.ts` (`DATA_PATH`, `loadStore`, `saveStore`, `findCity`), `settingsStorage.ts` (`toggleUnit`)
+- `storage/`: `citiesStorage.ts` (`DATA_PATH`, `loadStore(dataPath?)`, `saveStore(store,dataPath?)`, `findCity`), `settingsStorage.ts` (`toggleUnit(store,dataPath?)`)
 - `types/`: `City.ts` (`City`, `Store`, `TemperatureUnit`), `Weather.ts` (Open-Meteo shapes), `MenuOption.ts`
 - `api/`: `geocoding.ts`, `weather.ts` (`fetchTemperature`, `fetchDailyForecast`)
 - `utils/`: `colors.ts` (ANSI), `format.ts` (`cityLabel`, `unitLabel`), `constants.ts` (`DATA_FILENAME`, `DEFAULT_STORE`, API bases)

@@ -16,9 +16,9 @@ export function findCity(store: Store, name: string): City | undefined {
   return store.cities.find((c) => c.name.toLowerCase() === name.toLowerCase());
 }
 
-export async function loadStore(): Promise<Store> {
+export async function loadStore(dataPath: string = DATA_PATH): Promise<Store> {
   try {
-    const file = Bun.file(DATA_PATH);
+    const file = Bun.file(dataPath);
     if (!(await file.exists())) return { ...DEFAULT_STORE, cities: [] };
     const raw = await file.json();
     if (!raw || typeof raw !== "object" || !Array.isArray((raw as Store).cities)) {
@@ -37,6 +37,6 @@ export async function loadStore(): Promise<Store> {
   }
 }
 
-export async function saveStore(store: Store): Promise<void> {
-  await Bun.write(DATA_PATH, JSON.stringify(store, null, 2));
+export async function saveStore(store: Store, dataPath: string = DATA_PATH): Promise<void> {
+  await Bun.write(dataPath, JSON.stringify(store, null, 2));
 }

@@ -4,9 +4,9 @@ import { cityLabel } from "../utils/format.ts";
 import { green, red } from "../utils/colors.ts";
 import { ask } from "../presentation/input.ts";
 import { geocodeCity } from "../api/geocoding.ts";
-import { findCity, saveStore } from "../storage/citiesStorage.ts";
+import { DATA_PATH, findCity, saveStore } from "../storage/citiesStorage.ts";
 
-export async function handleAdd(store: Store): Promise<Store> {
+export async function handleAdd(store: Store, dataPath: string = DATA_PATH): Promise<Store> {
   const query = ask("  Nombre de la ciudad: ");
   if (!query) {
     console.log("  Búsqueda cancelada.");
@@ -31,7 +31,7 @@ export async function handleAdd(store: Store): Promise<Store> {
     }
     const updated: Store = { ...store, cities: [...store.cities, city] };
     if (!updated.defaultCity) updated.defaultCity = city.name;
-    await saveStore(updated);
+    await saveStore(updated, dataPath);
     console.log(green(`  ✅ Agregada: ${cityLabel(city)}`));
     return updated;
   } catch (error) {
